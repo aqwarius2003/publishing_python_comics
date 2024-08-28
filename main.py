@@ -13,8 +13,10 @@ def download_random_comic(number):
     response.raise_for_status()
     comic_details = response.json()
     image_url = comic_details['img']
+    comment = comic_details['alt']
+    print(comment)
     image_name = f'image_{number}.png'
     save_image(image_url, image_name)
 
 if __name__ == '__main__':
-    download_random_comic(22)
+    download_random_comic(23)
