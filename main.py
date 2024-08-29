@@ -73,13 +73,9 @@ def main() -> None:
     load_dotenv()
     token_tg = os.environ['TG_TOKEN']
     dp = ApplicationBuilder().token(token_tg).build()
-    # dp = updater.dispatcher
 
     dp.add_handler(CommandHandler('send_me_comic', handle_send_comic))
-
-
     dp.run_polling()
-
 
 if __name__ == '__main__':
     main()
