@@ -1,46 +1,36 @@
-import requests
+import asyncio
 import logging
-from dotenv import load_dotenv
 import os
+import telegram
 from random import randint
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext
+import requests
+from dotenv import load_dotenv
 
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 def save_image(url, save_path, payload=None):
     """Сохраняет в корневую папку изображение из URL"""
-    try:
-        response = requests.get(url, params=payload)
-        response.raise_for_status()
-        with open(save_path, 'wb') as file:
-            file.write(response.content)
-        logger.info(f"Изображение успешно сохранено: {save_path}")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Ошибка при качивании комикса с URL {url}: {e}")
-    except Exception as e:
-        logger.error(f"Ошибка при сохранении изображения: {e}")
+    response = requests.get(url, params=payload)
+    response.raise_for_status()
+    with open(save_path, 'wb') as file:
+        # raise ValueError('Ошибка при сохранении файла')
+        file.write(response.content)
 
 
-def download_random_comic():
-    """Скачивает случайный комикс-картинку и комментарий к ней """
-    try:
-        number = get_random_comic_number()
-        url = f'https://xkcd.com/{number}/info.0.json'
-        response = requests.get(url)
-        response.raise_for_status()
-        comic_details = response.json()
-        image_url = comic_details['img']
-        comment = comic_details['alt']
-        image_name = f'image_{number}.png'
-        save_image(image_url, image_name)
-        logger.info(f"Скачан комикс №{number} с комментарием: {comment}")
-        return image_name, comment
-    except Exception as e:
-        logger.error(f'Произошла ошибка: {e}')
+def choosing_random_comic(number):
+    """Выбирает случайный комикс-картинку и комментарий к ней """
+    url = f'https://xkcd.com/{number}/info.0.json'
+    response = requests.get(url)
+    response.raise_for_status()
+    comic_details = response.json()
+    image_url = comic_details['img']
+    comment = comic_details['alt']
+    image_name = f'image_{number}.png'
+    logger.info(f"Выбран комикс №{number} с комментарием: {comment}")
+    return image_url, image_name, comment
 
 
 def get_random_comic_number():
@@ -52,30 +42,36 @@ def get_random_comic_number():
     return randint(1, max_comic_number)
 
 
-async def publish_to_tg_chat(update: Update, context: CallbackContext, image_name: str, comment: str):
-    """Отправляет случайный комикс в чат и удаляет файл после отправки."""
-    chat_id = update.effective_chat.id
+async def send_comic(token_tg, chat_id, image_name, comment):
+    """Отправляет комикс в чат."""
+    bot = telegram.Bot(token_tg)
     with open(image_name, 'rb') as photo:
-        status_publish = await context.bot.send_photo(chat_id=chat_id, photo=image_name, caption=comment)
-    if status_publish:
-        os.remove(image_name)
-        logger.error(f"Фото {image_name} удалено")
-    else:
-        logger.error(f"Ошибка при отправке комикса {image_name}")
-
-
-async def handle_send_comic(update: Update, context: CallbackContext) -> None:
-    image_name, comment = download_random_comic()
-    await publish_to_tg_chat(update, context, image_name, comment)
+        # raise ValueError('Ошибка с публикацией')
+        await bot.send_photo(chat_id=chat_id, photo=photo, caption=comment)
 
 
 def main() -> None:
     load_dotenv()
     token_tg = os.environ['TG_TOKEN']
-    dp = ApplicationBuilder().token(token_tg).build()
+    id_chat = os.environ['ID_CHAT']
 
-    dp.add_handler(CommandHandler('send_me_comic', handle_send_comic))
-    dp.run_polling()
+    number = get_random_comic_number()
+    image_url, image_name, comment = choosing_random_comic(number)
+
+    try:
+        save_image(image_url, image_name)
+        logger.info(f"Скачан комикс №{number}")
+        asyncio.run(send_comic(token_tg, id_chat, image_name, comment))
+        logger.info(f'Комикс №{number} отправлен')
+    except requests.RequestException as e:
+        logger.error(f"Ошибка при скачивании изображения: {e}")
+    except ValueError as e:
+        logger.error(f"Искусственная ошибка: {e}")
+    finally:
+        if os.path.exists(image_name):
+            os.remove(image_name)
+            logger.error(f"Временный файл {image_name} удален")
+
 
 if __name__ == '__main__':
     main()
