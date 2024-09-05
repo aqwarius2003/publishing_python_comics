@@ -16,7 +16,6 @@ def save_image(url, save_path, payload=None):
     response = requests.get(url, params=payload)
     response.raise_for_status()
     with open(save_path, 'wb') as file:
-        # raise ValueError('Ошибка при сохранении файла')
         file.write(response.content)
 
 
@@ -46,7 +45,6 @@ async def send_comic(token_tg, chat_id, image_name, comment):
     """Отправляет комикс в чат."""
     bot = telegram.Bot(token_tg)
     with open(image_name, 'rb') as photo:
-        # raise ValueError('Ошибка с публикацией')
         await bot.send_photo(chat_id=chat_id, photo=photo, caption=comment)
 
 
